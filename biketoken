@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import "hardhat/console.sol";
+
+contract BikeToken is ERC20, Ownable, ERC20Burnable 
+{
+    event LogMessage(string message);
+
+    enum BikeBrand { RoyalEnfield, HarleyDavidson, Jawa }
+
+    mapping(BikeBrand => uint256) public bikePrices;
+    BikeBrand public recentlyPurchasedBike;
+
+    constructor(address initialOwner) Ownable(initialOwner) ERC20("BikeCoin", "BIKE") {
+        bikePrices[BikeBrand.RoyalEnfield] = 200;
+        bikePrices[BikeBrand.HarleyDavidson] = 400;
+        bikePrices[BikeBrand.Jawa] = 500;
+    }
+
+    function mintTokens(address beneficiary, uint256 amount) public onlyOwner {
+        _mint(beneficiary, amount);
+    }
+
+    function transferTokens(address recipient, uint256 amount) external {
+        require(balanceOf(msg.sender) >= amount, "INSUFFICIENT FUNDS!!");
+        _transfer(msg.sender, recipient, amount);
+    }
+
+    function redeemForTokens(uint256 tokenAmount) public {
+        recentlyPurchasedBike = determineBikePurchase(tokenAmount);
+        require(bikePrices[recentlyPurchasedBike] > 0, "Invalid bike brand");
+        require(balanceOf(msg.sender) >= bikePrices[recentlyPurchasedBike], "INSUFFICIENT FUNDS!!");
+        _burn(msg.sender, bikePrices[recentlyPurchasedBike]);
+        emit LogMessage("Bike purchase successful");
+    }
+
+    function getBalance() external view returns (uint256) {
+        return balanceOf(msg.sender);
+    }
+
+    function burnTokens(uint256 amount) external {
+        require(balanceOf(msg.sender) >= amount, "INSUFFICIENT FUNDS!!");
+        _burn(msg.sender, amount);
+        emit LogMessage("Tokens burned successfully");
+    }
+
+    function determineBikePurchase(uint256 tokenAmount) internal view returns (BikeBrand) {
+        if (bikePrices[BikeBrand.Jawa] <= tokenAmount) {
+            return BikeBrand.Jawa;
+        } else if (bikePrices[BikeBrand.HarleyDavidson] <= tokenAmount) {
+            return BikeBrand.HarleyDavidson;
+        } else if (bikePrices[BikeBrand.RoyalEnfield] <= tokenAmount) {
+            return BikeBrand.RoyalEnfield;
+        } else {
+            revert("No bike can be purchased with the specified token amount");
+        }
+    }
+
+    function getRecentlyPurchasedBike() external view returns (BikeBrand) {
+        return recentlyPurchasedBike;
+    }
+}
